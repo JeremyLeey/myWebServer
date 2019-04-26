@@ -13,6 +13,7 @@
 
 using namespace std;
 
+
 namespace CurrentThread{
     __thread int t_cachedTid = 0;
     __thread char t_tidString[32];

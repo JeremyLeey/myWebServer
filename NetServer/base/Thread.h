@@ -26,7 +26,7 @@ private:
     bool joined_;
     pthread_t pthreadId_;
     pid_t tid_;                      // 使用gettid(2)系统调用的返回值作为线程id
-    ThreadFunc func_;               // 线程入口函数？
+    ThreadFunc func_;
     std::string name_;              // 线程名
     CountDownLatch latch_;
 };
