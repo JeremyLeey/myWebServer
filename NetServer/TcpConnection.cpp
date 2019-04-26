@@ -1,7 +1,6 @@
 #include "TcpConnection.h"
 #include "EventLoop.h"
 #include "Channel.h"
-#include "base/Timestamp.h"
 
 #include <unistd.h> // for read/write
 #include <string.h> // for strerror
@@ -9,6 +8,7 @@
 #include <iostream>
 
 #define BUFSIZE 65536
+
 int readn(int, std::string&);
 int sendn(int, std::string&);
 
@@ -16,19 +16,20 @@ int sendn(int, std::string&);
 TcpConnection::TcpConnection(EventLoop *loop, int sockfd, const struct sockaddr_in& clientaddr)
     :loop_(loop),
     fd_(sockfd),
+    cliSocket_(sockfd),
     channel_(new Channel(loop, sockfd)),
     clientaddr_(clientaddr),
     inputBuffer_(),
     outputBuffer_()
 {
-
     channel_->setReadCallback(std::bind(&TcpConnection::handleRead, this));
     channel_->setWriteCallback(std::bind(&TcpConnection::handleWrite, this));
     channel_->setCloseCallback(std::bind(&TcpConnection::handleClose, this));
     channel_->setErrorCallback(std::bind(&TcpConnection::handleError, this));
+    cliSocket_.setNonblocking();
 }
 TcpConnection::~TcpConnection() {
-    std::cout << "TcpConnection destruct with fd = " << fd_ << std::endl;
+    std::cout << "TcpConnection::~TcpConnection(): ok" << std::endl;
 }
 
 void TcpConnection::connectEstablished() {
@@ -72,7 +73,7 @@ void TcpConnection::shutDown() {
 
 void TcpConnection::shutDownInLoop() {
     loop_->assertInLoopThread();
-    ::shutdown(fd_, SHUT_WR);
+    cliSocket_.shutdownWrite();
 }
 
 void TcpConnection::handleRead() {
@@ -176,9 +177,4 @@ int sendn(int fd, std::string& outputBuffer_) {
     }
     return sendSum;
 }
-
-
-
-
-
 

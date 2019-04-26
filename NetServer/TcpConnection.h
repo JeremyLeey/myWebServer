@@ -7,12 +7,13 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include "Socket.h"
 
 
 
 class EventLoop;
 class Channel;
-class Socket;
+class Buffer;
 
 class TcpConnection : public std::enable_shared_from_this<TcpConnection> {
 public:
@@ -20,14 +21,13 @@ public:
     typedef std::function<void(const TcpConnectionPtr&)> Callback;
     typedef std::function<void(const TcpConnectionPtr&, std::string&)> MessageCallback;
     
-    TcpConnection(EventLoop *loop, int fd, const struct sockaddr_in &clientaddr);
+    TcpConnection(EventLoop *, int, const sockaddr_in &);
     ~TcpConnection();
 
     // 获取当前连接的fd
     int getFd() const {return fd_;}
     // 获取当前连接所属的loop
     EventLoop* getLoop() const {return loop_;}
-    // 添加本连接对应的事件到loop
     
     // 发送数据的函数
     void send(const std::string);
@@ -65,6 +65,7 @@ public:
 private:
     EventLoop *loop_;
     int fd_;
+    Socket cliSocket_;
     Channel* channel_;
     sockaddr_in clientaddr_;
     MessageCallback messageCallback_;

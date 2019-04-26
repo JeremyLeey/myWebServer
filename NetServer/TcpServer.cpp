@@ -16,9 +16,6 @@
 #include <cstring> // for memset
 #include <arpa/inet.h>
 
-void setNonblocking(int);
-
-
 TcpServer::TcpServer(EventLoop* loop, const int port, const int threadnum)
     :serverSocket_(),
     loop_(loop),
@@ -37,63 +34,44 @@ TcpServer::TcpServer(EventLoop* loop, const int port, const int threadnum)
 }
 
 TcpServer::~TcpServer() {
-    // socket.close() ? 
-    std::cout << "TcpServer shutDown" << std::endl;
+    std::cout << "TcpServer::~TcpServer(): TcpServer shutDown" << std::endl;
 }
 
 void TcpServer::start() {
-     threadpool_->start();
+    threadpool_->start();
     serverChannel_->enableReading();
 }
 
 void TcpServer::newConnection() {
     struct sockaddr_in clientAddr;
-    memset(&clientAddr, 0, sizeof(clientAddr));
     int clientFd = serverSocket_.accept(clientAddr);
     if (++connCount_ >= MAXCONNECTION) {
         ::close(clientFd);
         return;
     }
-    setNonblocking(clientFd);
 
     // 选择IO线程loop
     EventLoop *ioLoop = threadpool_->getNextLoop();
     TcpConnectionPtr conn = std::make_shared<TcpConnection>(ioLoop, clientFd, clientAddr);
+
     conn->setConnectionCallback(newConnectionCallback_);
     conn->setMessageCallback(messageCallback_);
     conn->setCloseCallback(std::bind(&TcpServer::removeConnection, this, std::placeholders::_1));
     tcpConnlist_[clientFd] = conn;
 
-    
-    std::cout << Timestamp::now().toFormattedString() << " ioLoop->runInLoop(TcpConnection::connectEstablished)" << std::endl;
     ioLoop->runInLoop(std::bind(&TcpConnection::connectEstablished, conn));
 }
 
 
 void TcpServer::removeConnection(const TcpConnectionPtr& conn) {
-    //loop_->assertInLoopThread();
-    std::cout << Timestamp::now().toFormattedString() << " loop_->runInLoop(TcpServer::removeConnectionInLoop)" << std::endl;
     loop_->runInLoop(std::bind(&TcpServer::removeConnectionInLoop, this, conn));
 }
 
 void TcpServer::removeConnectionInLoop(const TcpConnectionPtr& conn) {
     loop_->assertInLoopThread();
-    std::cout << Timestamp::now().toFormattedString() << " TcpServer::removeConnectionInLoop [" << conn->getFd() << "]-connection in EventLoop" << loop_ <<  std::endl;
+    std::cout << "TcpServer::removeConnectionInLoop [" << conn->getFd() << "]-connection in EventLoop" << loop_ <<  std::endl;
     --connCount_;
     tcpConnlist_.erase(conn->getFd());
     EventLoop* ioLoop = conn->getLoop();
-    std::cout << Timestamp::now().toFormattedString() << " ioLoop->runInLoop(TcpConnectionDestroyed)" << std::endl;
     ioLoop->runInLoop(std::bind(&TcpConnection::connectDestroyed, conn));
-}
-
-void setNonblocking(int fd) {
-    int opts = fcntl(fd, F_GETFL);
-    if (opts < 0) {
-        perror("fcntl(fd, GETFL)");
-        exit(1);
-    }
-    if (fcntl(fd, F_SETFL, opts | O_NONBLOCK) < 0) {
-        perror("fcntl(fd, SETFL, opts)");
-        exit(1);
-    }
 }

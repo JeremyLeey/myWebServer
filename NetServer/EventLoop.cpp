@@ -2,9 +2,6 @@
 #include "Channel.h"
 #include "Epoll.h"
 
-#include "base/Timestamp.h"
-
-
 #include <sys/eventfd.h>
 #include <assert.h>
 #include <iostream>
@@ -33,20 +30,18 @@ EventLoop::EventLoop():
     threadId_(CurrentThread::tid()),
     pwakeupChannel_(new Channel(this, wakeupFd_))
 {
-    std::cout << Timestamp::now().toFormattedString() << " EventLoop created " << this << " in thread " << threadId_ << std::endl;
+    std::cout << "EventLoop created " << this << " in thread " << threadId_ << std::endl;
     if (t_loopInThisThread) {
         std::cout << "Another EventLoop " << t_loopInThisThread << " exists in this thread " << threadId_ << std::endl;
     } else {
         t_loopInThisThread = this;
     }
-
-    // pwakeupChannel_->setEvents(EPOLLIN | EPOLLET);
     pwakeupChannel_->setReadCallback(std::bind(&EventLoop::handleRead, this));
     pwakeupChannel_->enableReading();
 }
 
 EventLoop::~EventLoop() {
-    std::cout << "EventLoop " << this << " of thread " << threadId_ << " destructs in thread "<< CurrentThread::tid() << std::endl;
+    std::cout << "EventLoop " << this << " destructs in thread "<< threadId_ << std::endl;
     pwakeupChannel_->disableAll();
     pwakeupChannel_->remove();
     ::close(wakeupFd_);
@@ -56,19 +51,14 @@ EventLoop::~EventLoop() {
 void EventLoop::wakeup() {
     uint64_t one = 1;
     ssize_t n = ::write(wakeupFd_, &one, sizeof one);
-    if (n != sizeof one) {
-        std::cerr << "EventLoop::wakeup() writes " << n << " bytes instead of 8" << std::endl;
-    }
+    assert(n == sizeof(one));
 }
 
 // eventfd的可读回调函数
 void EventLoop::handleRead() {
     uint64_t one = 1;
     ssize_t n = ::read(wakeupFd_, &one, sizeof one);
-    if (n != sizeof one) {
-        // Log something
-    }
-    std::cout << Timestamp::now().toFormattedString() << " Leave EventLoop::handleRead()" << std::endl;
+    assert(n == sizeof(one));
 }
 
 void EventLoop::runInLoop(Functor&& cb) {
@@ -76,11 +66,10 @@ void EventLoop::runInLoop(Functor&& cb) {
         cb();
     else
         queueInLoop(std::move(cb));
-
-    std::cout << Timestamp::now().toFormattedString() << " EventLoop " << this << " Leave runInLoop" << std::endl;
 }
 
 void EventLoop::queueInLoop(Functor&& cb) {
+    // 有可能在别的线程中访问,因此需要先加锁
     {
         MutexLockGuard lock(mutex_);
         pendingFunctors_.emplace_back(std::move(cb));
@@ -96,10 +85,8 @@ void EventLoop::assertInLoopThread() {
 }
 
 void EventLoop::abortNotInLoopThread() {
-    std::cout << "abortNotInLoopThread()" << std::endl;
     abort();
 }
-
 
 void EventLoop::loop() {
     assert(!looping_);
@@ -109,30 +96,26 @@ void EventLoop::loop() {
     std::vector<Channel*> activeChannels_;
 
     while (!quit_) {
-        std::cout << Timestamp::now().toFormattedString() << " EventLoop "<< this <<" Begin Loop" << std::endl;
+        std::cout << "EventLoop "<< this <<" Begin Loop" << std::endl;
         activeChannels_.clear();
         poller_->poll(-1, &activeChannels_);
-        std::cout << Timestamp::now().toFormattedString() << " EventLoop " << this << " wake up from epoll_wait" << std::endl;
+        std::cout << "EventLoop " << this << " wake up from epoll_wait" << std::endl;
         eventHandling_ = true;
         for (auto &channel : activeChannels_) {
-            if (channel->getFd() == wakeupFd_) {
-                std::cout << Timestamp::now().toFormattedString() <<" EventLoop " << this << " was waked up by eventfd" << std::endl;
-            }
             channel->handleEvents();
         }
         eventHandling_ = false;
         doPendingFunctors();
 
     }
-    
     std::cout << "EventLoop " << this << " stop looping" << std::endl; 
     looping_ = false;
 }
 
 void EventLoop::doPendingFunctors() {
-    std::cout << Timestamp::now().toFormattedString() << " EventLoop::doPendingFunctors()" << std::endl;
     std::vector<Functor> functors;
     callingPendingFunctors_ = true;
+    // 缩小临界区
     {
         MutexLockGuard lock(mutex_);
         functors.swap(pendingFunctors_);
@@ -142,7 +125,6 @@ void EventLoop::doPendingFunctors() {
         functors[i]();
     }
     callingPendingFunctors_ = false;
-    std::cout << Timestamp::now().toFormattedString() << " Leave EventLoop::doPendingFunctors()" << std::endl;
 }
 
 void EventLoop::quit() {

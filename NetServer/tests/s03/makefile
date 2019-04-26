@@ -1,5 +1,5 @@
 VPATH = ../../:../../base/
-SOURCES = EventLoop.o Socket.o Channel.o Epoll.o Thread.o CountDownLatch.o TcpServer.o TcpConnection.o EventLoopThread.o EventLoopThreadPool.o Timestamp.o
+SOURCES = EventLoop.o Socket.o Channel.o Epoll.o Thread.o CountDownLatch.o TcpServer.o TcpConnection.o EventLoopThread.o EventLoopThreadPool.o
 CC = g++
 CXXFLAGS = -std=c++11 -O0 -g -Wall
 INCLUDE = -I../../

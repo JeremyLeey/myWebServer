@@ -1,6 +1,6 @@
 #pragma once
 
-// 服务器socket类,封装socket描述符及相关的初始化操作
+// 套接字描述符封装，socket描述符及相关的初始化操作
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -13,25 +13,27 @@
 
 class Socket{
 private:
-    // 服务器socket文件描述符
-    int serverfd_;
+    // socket文件描述符
+    int fd_;
 public:
     Socket();
+    Socket(int);
     ~Socket();
 
     // 获取fd
-    int fd() const {return serverfd_;}
-    // 设置地址重用
+    int fd() const {return fd_;}
+    // 设置地址重用SO_REUSEPORT for server
     void setReuseAddr();
     // 设置非阻塞
     void setNonblocking();
-    // 绑定地址
+    // 绑定地址 for server
     bool bindAddress(int serverport);
-    // 开启监听
+    // 开启监听 for server
     bool listen();
     // accept获取连接
     int accept(struct sockaddr_in &clinetaddr);
-    // 关闭服务器fd
+    // 关闭
     bool close();
-
+    //
+    void shutdownWrite();
 };

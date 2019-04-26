@@ -38,15 +38,6 @@ public:
     void setCloseCallback(const Callback &cb) {
         closeCallback_ = cb;
     }
-
-    // 注册数据发送完成回调函数
-    // void SetSendCompleteCallback(const Callback &cb) {
-    //    sendCompleteCallback_ = cb;
-    // }
-    // 注册连接异常回调函数
-    // void SetErrorCallback(const Callback &cb) {
-    //    errorCallback_ = cb;
-    // }
 private:
     // 服务器的Socket
     Socket serverSocket_;
@@ -60,7 +51,6 @@ private:
     std::map<int, TcpConnectionPtr> tcpConnlist_;
     // IO线程池
     EventLoopThreadPool* threadpool_;
-    //  MutexLock mutex_;
     // 业务接口回调函数
     Callback newConnectionCallback_;
     MessageCallback messageCallback_;

@@ -22,6 +22,7 @@ EventLoopThread::~EventLoopThread() {
 }
 
 EventLoop* EventLoopThread::startLoop() {
+    // 该函数返回新线程中EventLoop对象的地址,因此用条件变量来等待线程的创建与运行
     assert(!thread_.started());
     thread_.start();
     {
